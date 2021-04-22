@@ -29,13 +29,13 @@ class NERModel(BaseModel):
             self.lstm = LSTM(self.embed.embedding_dim, num_layers=num_layers, hidden_size=hidden_size, bidirectional=True,
                              batch_first=True, dropout=dropout)
         elif encoder == 'cnn':
-            self.word2cnn = nn.Linear(self.input_dim, word_hidden_dim*2)
+            self.word2cnn = nn.Linear(self.embed.embedding_dim, hidden_sizse*2)
             self.cnn_list = list()
             for _ in range(4):
-                self.cnn_list.append(nn.Conv1d(word_hidden_dim*2, word_hidden_dim*2, kernel_size=3, padding=1))
+                self.cnn_list.append(nn.Conv1d(hidden_size*2, hidden_size*2, kernel_size=3, padding=1))
                 self.cnn_list.append(nn.ReLU())
                 self.cnn_list.append(nn.Dropout(dropout))
-                self.cnn_list.append(nn.BatchNorm1d(word_hidden_dim*2))
+                self.cnn_list.append(nn.BatchNorm1d(hidden_size*2))
             self.cnn = nn.Sequential(*self.cnn_list)
         elif encoder == 'transformer':
             self.transformer = TransformerEncoder()
