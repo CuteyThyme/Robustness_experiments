@@ -8,9 +8,12 @@ from config import Config
 
 config = Config()
 normalize_embed = True
-type = ['train', 'test', 'dev', 'oov', 'concat', 'crossCategory', 'toLonger', 'entityTyposSwap', 'addAdverb', 'addLrrSent', 
+type = ['train', 'test', 'dev', 'oov', 'concat', 'crossCategory', 'toLonger', 'entityTyposSwap', 'addAdverb', 'addLrrSent', 'caseLower', 
                   'caseTitle', 'caseUpper', 'contraction', 'keyboard', 'mlm', 'number', 'ocr', 'punctuationAddBracket', 'reverseNeg',
-                  'spelling', 'tense', 'twitterRandom', 'typosRandom', 'wordEmbedding', 'wordNetAntonym', 'wordNetSynonym']
+                  'spelling', 'tense', 'twitterRandom', 'typosRandom', 'wordEmbedding', 'wordNetAntonym', 'wordNetSynonym',
+       'ori_oov', 'ori_concat', 'ori_crossCategory', 'ori_toLonger', 'ori_entityTyposSwap', 'ori_addAdverb', 'ori_addLrrSent', 'ori_caseLower', 
+        'ori_caseTitle', 'ori_caseUpper', 'ori_contraction', 'ori_keyboard', 'ori_mlm', 'ori_number', 'ori_ocr', 'ori_punctuationAddBracket', 
+        'ori_reverseNeg', 'ori_spelling', 'ori_tense', 'ori_twitterRandom', 'ori_typosRandom', 'ori_wordEmbedding', 'ori_wordNetAntonym', 'ori_wordNetSynonym']
 
 def load_data(dataset, word_embedding, char_embedding):
     if dataset == 'conll2003':
