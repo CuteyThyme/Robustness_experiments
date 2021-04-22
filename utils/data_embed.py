@@ -37,8 +37,8 @@ def load_data(dataset, word_embedding, char_embedding):
 
 
     if char_embedding == 'cnn':
-        char_embed = CNNCharEmbedding(vocab=data.get_vocab('words'), embed_size=100, char_emb_size=100, filter_nums=[30],
-                                      kernel_sizes=[3], word_dropout=0, dropout=0.3, pool_method='avg'
+        char_embed = CNNCharEmbedding(vocab=data.get_vocab('words'), embed_size=64, char_emb_size=50, filter_nums=[100],
+                                      kernel_sizes=[5], word_dropout=0.2, dropout=0.3, pool_method='max'
                                       , include_word_start_end=True, min_char_freq=2)
     
     if word_embedding == 'rand':
