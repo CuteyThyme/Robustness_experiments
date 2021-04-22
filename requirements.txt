@@ -1,0 +1,2 @@
+fastNLP>=0.5
+textflint
