@@ -8,6 +8,7 @@ from fastNLP.core.utils import seq_len_to_mask
 from fastNLP.core.const import Const as C
 from fastNLP import CrossEntropyLoss
 
+
 from layers.lstm import LSTM
 from layers.transformer import TransformerEncoder
 from layers.crf import ConditionalRandomField, allowed_transitions
@@ -24,12 +25,13 @@ class NERModel(BaseModel):
         self.embed = get_embeddings(embed)
         self.encoder = encoder
         self.decoder = decoder
+        self.num_layers = num_layers
 
         if encoder == 'lstm':
             self.lstm = LSTM(self.embed.embedding_dim, num_layers=num_layers, hidden_size=hidden_size, bidirectional=True,
                              batch_first=True, dropout=dropout)
         elif encoder == 'cnn':
-            self.word2cnn = nn.Linear(self.embed.embedding_dim, hidden_sizse*2)
+            self.word2cnn = nn.Linear(self.embed.embedding_dim, hidden_size*2)
             self.cnn_list = list()
             for _ in range(4):
                 self.cnn_list.append(nn.Conv1d(hidden_size*2, hidden_size*2, kernel_size=3, padding=1))
@@ -38,7 +40,8 @@ class NERModel(BaseModel):
                 self.cnn_list.append(nn.BatchNorm1d(hidden_size*2))
             self.cnn = nn.Sequential(*self.cnn_list)
         elif encoder == 'transformer':
-            self.transformer = TransformerEncoder()
+            self.word2transformer = nn.Linear(self.embed.embedding_dim, 512)
+            self.transformer = TransformerEncoder(num_layers)
 
         self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(hidden_size*2, num_classes)
@@ -51,7 +54,8 @@ class NERModel(BaseModel):
         self.crf = ConditionalRandomField(num_classes, include_start_end_trans=True, allowed_transitions=trans)
        
     def _forward(self, words, seq_len=None, target=None):
-        batch_size = config.batch_size
+        batch_size = words.shape[0]
+        seq_length = words.shape[1]
         words = self.embed(words)
 
         if self.encoder == 'lstm':
@@ -60,14 +64,15 @@ class NERModel(BaseModel):
             word_in = torch.tanh(self.word2cnn(words)).transpose(2, 1).contiguous()
             feats = self.cnn(word_in).transpose(1, 2).contiguous()
         elif self.encoder == 'transformer':
-            feats = self.transformer(words)
+            word_in = self.word2transformer(words)
+            feats = self.transformer(word_in)
 
         feats = self.fc(feats)
         feats = self.dropout(feats)
-        
+        mask = seq_len_to_mask(seq_len)
+
         if self.decoder == 'crf':
             logits = F.log_softmax(feats, dim=-1)
-            mask = seq_len_to_mask(seq_len)
         
             if target is None:
                 pred, _ = self.crf.viterbi_decode(logits, mask)
@@ -76,15 +81,16 @@ class NERModel(BaseModel):
                 loss = self.crf(logits, target, mask).mean()
                 return {C.LOSS:loss}
         else:
-            feature_out = feats.contiguous().view(batch_size * seq_len, -1)
+            feature_out = feats.contiguous().view(batch_size * seq_length, -1)
             _, tag_seq = torch.max(feature_out, 1)
-            tag_seq = tag_seq.view(batch_size, seq_len)
+            tag_seq = tag_seq.view(batch_size, seq_length)
             tag_seq = mask.long() * tag_seq
             
             if target is None:
-                return {C.OUTPUT: pred}
+                return {C.OUTPUT: tag_seq}
             else:
-                loss = CrossEntropyLoss(pred=feature_out, target=target, seq_len=seq_len, reduction='sum')
+                target = target.contiguous().view(batch_size * seq_length)
+                loss = F.cross_entropy(feature_out, target.view(batch_size * seq_length))
                 return {C.LOSS: loss}
 
     def forward(self, words, seq_len, target):
