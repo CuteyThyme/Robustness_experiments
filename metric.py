@@ -36,7 +36,7 @@ class SpanDetailMetric(MetricBase):
 
     def __init__(self, tag_vocab, pred=None, target=None, seq_len=None,
                  encoding_type=None, ignore_labels=None,
-                 only_gross=True, f_type='micro', beta=1):
+                 only_gross=False, f_type='micro', beta=1):
         r"""
 
         :param tag_vocab: 标签的 :class:`~fastNLP.Vocabulary` 。支持的标签为"B"(没有label)；或"B-xxx"(xxx为某种label，比如POS中的NN)，
@@ -178,9 +178,9 @@ class SpanDetailMetric(MetricBase):
             rec_sum = 0
 
             for tag in tags:
-                tp = self._true_positives[tag]
-                fn = self._false_negatives[tag]
-                fp = self._false_positives[tag]
+                tp = self._true_positives.get(tag, 0)
+                fn = self._false_negatives.get(tag, 0)
+                fp = self._false_positives.get(tag, 0)
                 f, pre, rec = _compute_f_pre_rec(self.beta_square, tp, fn, fp)
                 f_sum += f
                 pre_sum += pre
