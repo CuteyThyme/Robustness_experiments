@@ -22,7 +22,7 @@ class Config(object):
         self.dropout_ratio = 0.5   # BiLSTM-CRF dropout 
         self.rnn_layer = 2
         self.load_model = False
-        self.base_epoch = 100
+        self.base_epoch = 1
       
     def update(self, **kwargs):
         for k, v in kwargs.items():
