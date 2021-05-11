@@ -1,6 +1,7 @@
 from collections import defaultdict
 import warnings
 import torch
+import re
 from typing import Union
 
 from fastNLP import MetricBase
@@ -36,7 +37,7 @@ class SpanDetailMetric(MetricBase):
 
     def __init__(self, tag_vocab, pred=None, target=None, seq_len=None,
                  encoding_type=None, ignore_labels=None,
-                 only_gross=False, f_type='micro', beta=1):
+                 only_gross=True, f_type='micro', beta=1):
         r"""
 
         :param tag_vocab: 标签的 :class:`~fastNLP.Vocabulary` 。支持的标签为"B"(没有label)；或"B-xxx"(xxx为某种label，比如POS中的NN)，
@@ -185,11 +186,13 @@ class SpanDetailMetric(MetricBase):
                 f_sum += f
                 pre_sum += pre
                 rec_sum += rec
+
                 if not self.only_gross and tag != '':  # tag!=''防止无tag的情况
                     f_key = 'f-{}'.format(tag)
+                    evaluate_result[f_key] = f
+
                     pre_key = 'pre-{}'.format(tag)
                     rec_key = 'rec-{}'.format(tag)
-                    evaluate_result[f_key] = f
                     evaluate_result[pre_key] = pre
                     evaluate_result[rec_key] = rec
 
@@ -199,15 +202,8 @@ class SpanDetailMetric(MetricBase):
                 evaluate_result['rec'] = rec_sum / len(tags)
 
         if self.f_type == 'micro':
-            f, pre, rec = _compute_f_pre_rec(self.beta_square,
-                                             sum(self._true_positives.values()),
-                                             sum(
-                                                 self._false_negatives.values()),
-                                             sum(
-                                                 self._false_positives.values()))
-            evaluate_result['f'] = f
-            evaluate_result['pre'] = pre
-            evaluate_result['rec'] = rec
+            # modified by wangxiao
+            evaluate_result.update(self.gloss_metric_cal())
 
         if reset:
             self._true_positives = defaultdict(int)
@@ -216,6 +212,57 @@ class SpanDetailMetric(MetricBase):
 
         for key, value in evaluate_result.items():
             evaluate_result[key] = round(value, 6)
+
+        return evaluate_result
+
+    def get_params(self, params='tp', params_pattern=''):
+        if not params_pattern or not isinstance(params_pattern, str):
+            raise ValueError(f"Invalid params regex string: {params_pattern}")
+
+        if params == 'tp':
+            param_dic = self._true_positives
+        elif params == 'fp':
+            param_dic = self._false_positives
+        elif params == 'fn':
+            param_dic = self._false_negatives
+        else:
+            raise ValueError(f"Plz check params input: {params}")
+
+        pattern = re.compile(params_pattern)
+        param_values = []
+
+        for param in param_dic:
+            if pattern.findall(param):
+                param_values.append(param_dic[param])
+
+        return param_values
+
+    def gloss_metric_cal(self):
+        evaluate_result = {}
+        params_regular_exs = ['(^org$)|(^per$)|(^loc$)|(^misc$)']
+
+        # add position regular expression
+        for position in ['start', 'end', 'mid']:
+            params_regular_exs.append(f'-{position}$')
+        # add length regular expression
+        for length in range(1, 6):
+            params_regular_exs.append(f'-{length}$')
+
+        for pattern in params_regular_exs:
+            f, pre, rec = _compute_f_pre_rec(
+                self.beta_square,
+                sum(self.get_params(params='tp', params_pattern=pattern)),
+                sum(self.get_params(params='fp', params_pattern=pattern)),
+                sum(self.get_params(params='fn', params_pattern=pattern))
+            )
+            if '(' in pattern:
+                tag = ''
+            else:
+                tag = '-' + pattern.replace('$', '').replace('^', '').replace('-', '')
+            evaluate_result[f'f{tag}'] = f
+            # skip precision and recall
+            # evaluate_result[f'pre{tag}'] = pre
+            # evaluate_result[f'rec{tag}'] = rec
 
         return evaluate_result
 
@@ -249,7 +296,7 @@ class SpanDetailMetric(MetricBase):
         if start != 0 and end != seq_len:
             param_dic[f'{key}-mid'] = param_dic.get(f'{key}-mid', 0) + 1
 
-        param_dic[f'{key}-{end-start}'] = param_dic.get(f'{key}-{end-start}', 0) + 1
+        param_dic[f'{key}-{min(end-start, 5)}'] = param_dic.get(f'{key}-{min(end-start, 5)}', 0) + 1
 
 
 def _get_encoding_type_from_tag_vocab(tag_vocab: Union[Vocabulary, dict]) -> str:
